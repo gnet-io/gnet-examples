@@ -156,8 +156,8 @@ func parseReq(data []byte, req *request) (leftover []byte, err error) {
 					q = i - s
 				} else if sdata[i] == ' ' {
 					if q != -1 {
-						req.path = sdata[s:q]
-						req.query = req.path[q+1 : i]
+						req.path = sdata[s:s+q]
+						req.query = req.path[s+q+1 : i]
 					} else {
 						req.path = sdata[s:i]
 					}
