@@ -3,12 +3,12 @@ package main
 import (
 	"flag"
 	"fmt"
+	"github.com/gnet-io/gnet-examples/examples/custom_codec/protocol"
 	"log"
 	"time"
 
 	"github.com/panjf2000/gnet"
-	"github.com/panjf2000/gnet/examples/custom_codec/protocol"
-	"github.com/panjf2000/gnet/pool/goroutine"
+	"github.com/panjf2000/gnet/pkg/pool/goroutine"
 )
 
 type customCodecServer struct {
@@ -46,7 +46,6 @@ func (cs *customCodecServer) React(frame []byte, c gnet.Conn) (out []byte, actio
 
 func testCustomCodecServe(addr string, multicore, async bool, codec gnet.ICodec) {
 	var err error
-	codec = &protocol.CustomLengthFieldProtocol{}
 	cs := &customCodecServer{addr: addr, multicore: multicore, async: async, codec: codec, workerPool: goroutine.Default()}
 	err = gnet.Serve(cs, addr, gnet.WithMulticore(multicore), gnet.WithTCPKeepAlive(time.Minute*5), gnet.WithCodec(codec))
 	if err != nil {
@@ -63,5 +62,5 @@ func main() {
 	flag.BoolVar(&multicore, "multicore", true, "multicore")
 	flag.Parse()
 	addr := fmt.Sprintf("tcp://:%d", port)
-	testCustomCodecServe(addr, multicore, false, nil)
+	testCustomCodecServe(addr, multicore, false, &protocol.CustomLengthFieldProtocol{})
 }

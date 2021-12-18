@@ -1,113 +1,73 @@
 package main
 
 import (
-	"bytes"
-	"encoding/binary"
-	"errors"
+	"flag"
 	"fmt"
-	"io"
-	"log"
-	"net"
-
-	"github.com/panjf2000/gnet/examples/custom_codec/protocol"
+	"github.com/gnet-io/gnet-examples/examples/custom_codec/protocol"
+	"github.com/panjf2000/gnet"
+	"sync"
+	"time"
 )
 
 // Example command: go run client.go
+type codeClient struct {
+	*gnet.EventServer
+	wg sync.WaitGroup
+}
+
+func (cs *codeClient) React(frame []byte, c gnet.Conn) (out []byte, action gnet.Action) {
+	fmt.Println("received: ", string(frame))
+	cs.wg.Done()
+	return
+}
+
+func (cs *codeClient) OnOpened(c gnet.Conn) ([]byte, gnet.Action) {
+	item := protocol.CustomLengthFieldProtocol{Version: protocol.DefaultProtocolVersion, ActionType: protocol.ActionData}
+	c.SetContext(item)
+	return nil, gnet.None
+}
+
 func main() {
-	conn, err := net.Dial("tcp", "127.0.0.1:9000")
+	var port int
+	var count int
+	// Example command: go run client.go --port 9000 --count 10
+	flag.IntVar(&port, "port", 9000, "server port")
+	flag.IntVar(&count, "count", 10, "message count")
+	flag.Parse()
+	addr := fmt.Sprintf("127.0.0.1:%d", port)
+
+	codec := &protocol.CustomLengthFieldProtocol{}
+	cs := &codeClient{wg: sync.WaitGroup{}}
+	client, err := gnet.NewClient(
+		cs,
+		gnet.WithCodec(codec),
+		gnet.WithTCPNoDelay(gnet.TCPNoDelay),
+		gnet.WithTCPKeepAlive(time.Minute*5),
+	)
+	if err != nil {
+		panic(err)
+	}
+
+	err = client.Start()
+	if err != nil {
+		panic(err)
+	}
+
+	conn, err := client.Dial("tcp", addr)
 	if err != nil {
 		panic(err)
 	}
 	defer conn.Close()
 
-	go func() {
-		for {
+	// store customize protocol header param using `c.SetContext()`
 
-			response, err := ClientDecode(conn)
-			if err != nil {
-				log.Printf("ClientDecode error, %v\n", err)
-			}
+	cs.wg.Add(count)
 
-			log.Printf("receive , %v, data:%s\n", response, string(response.Data))
-
-		}
-	}()
-
-	data := []byte("hello")
-	pbdata, err := ClientEncode(protocol.DefaultProtocolVersion, protocol.ActionData, data)
-	if err != nil {
-		panic(err)
-	}
-	conn.Write(pbdata)
-
-	data = []byte("world")
-	pbdata, err = ClientEncode(protocol.DefaultProtocolVersion, protocol.ActionData, data)
-	if err != nil {
-		panic(err)
-	}
-	conn.Write(pbdata)
-
-	select {}
-}
-
-// ClientEncode :
-func ClientEncode(pbVersion, actionType uint16, data []byte) ([]byte, error) {
-	result := make([]byte, 0)
-
-	buffer := bytes.NewBuffer(result)
-
-	if err := binary.Write(buffer, binary.BigEndian, pbVersion); err != nil {
-		s := fmt.Sprintf("Pack version error , %v", err)
-		return nil, errors.New(s)
-	}
-
-	if err := binary.Write(buffer, binary.BigEndian, actionType); err != nil {
-		s := fmt.Sprintf("Pack type error , %v", err)
-		return nil, errors.New(s)
-	}
-	dataLen := uint32(len(data))
-	if err := binary.Write(buffer, binary.BigEndian, dataLen); err != nil {
-		s := fmt.Sprintf("Pack datalength error , %v", err)
-		return nil, errors.New(s)
-	}
-	if dataLen > 0 {
-		if err := binary.Write(buffer, binary.BigEndian, data); err != nil {
-			s := fmt.Sprintf("Pack data error , %v", err)
-			return nil, errors.New(s)
+	for i := 0; i < count; i++ {
+		err = conn.AsyncWrite([]byte("hello"))
+		if err != nil {
+			panic(err)
 		}
 	}
-
-	return buffer.Bytes(), nil
-}
-
-// ClientDecode :
-func ClientDecode(rawConn net.Conn) (*protocol.CustomLengthFieldProtocol, error) {
-	newPackage := protocol.CustomLengthFieldProtocol{}
-
-	headData := make([]byte, protocol.DefaultHeadLength)
-	n, err := io.ReadFull(rawConn, headData)
-	if n != protocol.DefaultHeadLength {
-		return nil, err
-	}
-
-	// parse protocol header
-	bytesBuffer := bytes.NewBuffer(headData)
-	binary.Read(bytesBuffer, binary.BigEndian, &newPackage.Version)
-	binary.Read(bytesBuffer, binary.BigEndian, &newPackage.ActionType)
-	binary.Read(bytesBuffer, binary.BigEndian, &newPackage.DataLength)
-
-	if newPackage.DataLength < 1 {
-		return &newPackage, nil
-	}
-
-	data := make([]byte, newPackage.DataLength)
-	dataNum, err2 := io.ReadFull(rawConn, data)
-	if uint32(dataNum) != newPackage.DataLength {
-		s := fmt.Sprintf("read data error, %v", err2)
-		return nil, errors.New(s)
-	}
-
-	newPackage.Data = data
-
-	return &newPackage, nil
+	cs.wg.Wait() // wait for completing async write operation
 }
