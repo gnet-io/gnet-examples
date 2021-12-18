@@ -92,7 +92,7 @@ func (cc *CustomLengthFieldProtocol) Decode(c gnet.Conn) ([]byte, error) {
 			return data[headerLen:], nil
 		}
 		// log.Println("not enough payload data:", dataLen, protocolLen, dataSize)
-		return nil, gerrors.ErrIncompletePacket // 不能返回错误，这会导致连接直接被关闭，服务端就无法发送字节数据到客户端
+		return nil, gerrors.ErrIncompletePacket
 
 	}
 	// log.Println("not enough header data:", size)
