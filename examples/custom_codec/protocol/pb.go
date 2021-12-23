@@ -30,25 +30,21 @@ func (cc *CustomLengthFieldProtocol) Encode(c gnet.Conn, buf []byte) ([]byte, er
 	item := c.Context().(CustomLengthFieldProtocol)
 
 	if err := binary.Write(buffer, binary.BigEndian, item.Version); err != nil {
-		fmt.Println("error1")
 		s := fmt.Sprintf("Pack version error , %v", err)
 		return nil, errors.New(s)
 	}
 
 	if err := binary.Write(buffer, binary.BigEndian, item.ActionType); err != nil {
-		fmt.Println("error2")
 		s := fmt.Sprintf("Pack type error , %v", err)
 		return nil, errors.New(s)
 	}
 	dataLen := uint32(len(buf))
 	if err := binary.Write(buffer, binary.BigEndian, dataLen); err != nil {
-		fmt.Println("error3")
 		s := fmt.Sprintf("Pack datalength error , %v", err)
 		return nil, errors.New(s)
 	}
 	if dataLen > 0 {
 		if err := binary.Write(buffer, binary.BigEndian, buf); err != nil {
-			fmt.Println("error4")
 			s := fmt.Sprintf("Pack data error , %v", err)
 			return nil, errors.New(s)
 		}
