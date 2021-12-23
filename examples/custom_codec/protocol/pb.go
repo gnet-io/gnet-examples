@@ -8,6 +8,7 @@ import (
 	"log"
 
 	"github.com/panjf2000/gnet"
+	gerrors "github.com/panjf2000/gnet/pkg/errors"
 )
 
 // CustomLengthFieldProtocol : custom protocol
@@ -23,7 +24,6 @@ type CustomLengthFieldProtocol struct {
 // Encode ...
 func (cc *CustomLengthFieldProtocol) Encode(c gnet.Conn, buf []byte) ([]byte, error) {
 	result := make([]byte, 0)
-
 	buffer := bytes.NewBuffer(result)
 
 	// take out the param
@@ -66,7 +66,13 @@ func (cc *CustomLengthFieldProtocol) Decode(c gnet.Conn) ([]byte, error) {
 		_ = binary.Read(byteBuffer, binary.BigEndian, &dataLength)
 		// to check the protocol version and actionType,
 		// reset buffer if the version or actionType is not correct
-		if pbVersion != DefaultProtocolVersion || isCorrectAction(actionType) == false {
+
+		if dataLength < 1 {
+			return nil, nil
+		}
+
+		if pbVersion != DefaultProtocolVersion || !isCorrectAction(actionType) {
+			fmt.Println("reset")
 			c.ResetBuffer()
 			log.Println("not normal protocol:", pbVersion, DefaultProtocolVersion, actionType, dataLength)
 			return nil, errors.New("not normal protocol")
@@ -82,11 +88,11 @@ func (cc *CustomLengthFieldProtocol) Decode(c gnet.Conn) ([]byte, error) {
 			return data[headerLen:], nil
 		}
 		// log.Println("not enough payload data:", dataLen, protocolLen, dataSize)
-		return nil, errors.New("not enough payload data")
+		return nil, gerrors.ErrIncompletePacket
 
 	}
 	// log.Println("not enough header data:", size)
-	return nil, errors.New("not enough header data")
+	return nil, gerrors.ErrIncompletePacket
 }
 
 // default custom protocol const
