@@ -3,8 +3,9 @@ package main
 import (
 	"flag"
 	"fmt"
-	"github.com/gnet-io/gnet-examples/examples/codec/config"
 	"sync"
+
+	"github.com/gnet-io/gnet-examples/examples/codec/config"
 
 	"github.com/panjf2000/gnet"
 )

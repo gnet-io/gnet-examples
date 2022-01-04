@@ -3,9 +3,10 @@ package main
 import (
 	"flag"
 	"fmt"
-	"github.com/gnet-io/gnet-examples/examples/custom_codec/protocol"
 	"log"
 	"time"
+
+	"github.com/gnet-io/gnet-examples/examples/custom_codec/protocol"
 
 	"github.com/panjf2000/gnet"
 	"github.com/panjf2000/gnet/pkg/pool/goroutine"
