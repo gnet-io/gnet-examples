@@ -5,33 +5,17 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/panjf2000/gnet"
+	"github.com/panjf2000/gnet/v2"
 )
 
 type echoServer struct {
-	*gnet.EventServer
+	*gnet.BuiltinEventEngine
 }
 
-func (es *echoServer) OnInitComplete(srv gnet.Server) (action gnet.Action) {
-	log.Printf("UDP Echo server is listening on %s (multi-cores: %t, loops: %d)\n",
-		srv.Addr.String(), srv.Multicore, srv.NumEventLoop)
-	return
-}
-
-func (es *echoServer) React(frame []byte, c gnet.Conn) (out []byte, action gnet.Action) {
-	// Echo synchronously.
-	out = frame
-	return
-
-	/*
-		// Echo asynchronously.
-		data := append([]byte{}, frame...)
-		go func() {
-			time.Sleep(time.Second)
-			c.SendTo(data)
-		}()
-		return
-	*/
+func (es *echoServer) OnTraffic(c gnet.Conn) gnet.Action {
+	data, _ := c.Next(-1)
+	c.Write(data)
+	return gnet.None
 }
 
 func main() {
@@ -44,5 +28,5 @@ func main() {
 	flag.BoolVar(&reuseport, "reuseport", false, "--reuseport true")
 	flag.Parse()
 	echo := new(echoServer)
-	log.Fatal(gnet.Serve(echo, fmt.Sprintf("udp://:%d", port), gnet.WithMulticore(multicore), gnet.WithReusePort(reuseport)))
+	log.Fatal(gnet.Run(echo, fmt.Sprintf("udp://:%d", port), gnet.WithMulticore(multicore), gnet.WithReusePort(reuseport)))
 }

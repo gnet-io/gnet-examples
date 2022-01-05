@@ -14,7 +14,7 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/panjf2000/gnet"
+	"github.com/panjf2000/gnet/v2"
 )
 
 var res string
@@ -27,7 +27,9 @@ type request struct {
 }
 
 type httpServer struct {
-	*gnet.EventServer
+	*gnet.BuiltinEventEngine
+
+	parser httpParser
 }
 
 var (
@@ -35,54 +37,45 @@ var (
 	errMsgBytes = []byte(errMsg)
 )
 
-type httpCodec struct {
+type httpParser struct {
 	req request
+	rsp []byte
 }
 
-func (hc *httpCodec) Encode(c gnet.Conn, buf []byte) (out []byte, err error) {
-	if c.Context() == nil {
-		return buf, nil
-	}
-	return appendResp(out, "500 Error", "", errMsg+"\n"), nil
-}
-
-func (hc *httpCodec) Decode(c gnet.Conn) (out []byte, err error) {
-	buf := c.Read()
-	c.ResetBuffer()
-
+func (hc *httpParser) Parse(c gnet.Conn) (remaining int, err error) {
+	buf, _ := c.Peek(-1)
+	n := len(buf)
 	// process the pipeline
+	defer func() {
+		c.Discard(n - remaining)
+	}()
+
+	hc.rsp = hc.rsp[:0]
 	var leftover []byte
 pipeline:
 	leftover, err = parseReq(buf, &hc.req)
 	// bad thing happened
 	if err != nil {
-		c.SetContext(err)
-		return nil, err
+		return n, err
 	} else if len(leftover) == len(buf) {
 		// request not ready, yet
-		return
+		return len(leftover), nil
 	}
-	out = appendHandle(out, res)
+	hc.rsp = appendHandle(hc.rsp, res)
 	buf = leftover
 	goto pipeline
 }
 
-func (hs *httpServer) OnInitComplete(srv gnet.Server) (action gnet.Action) {
-	log.Printf("HTTP server is listening on %s (multi-cores: %t, loops: %d)\n",
-		srv.Addr.String(), srv.Multicore, srv.NumEventLoop)
-	return
-}
-
-func (hs *httpServer) React(frame []byte, c gnet.Conn) (out []byte, action gnet.Action) {
-	if c.Context() != nil {
+func (hs *httpServer) OnTraffic(c gnet.Conn) gnet.Action {
+	if _, err := hs.parser.Parse(c); err != nil {
 		// bad thing happened
-		out = errMsgBytes
-		action = gnet.Close
-		return
+		c.Write(errMsgBytes)
+		return gnet.Close
 	}
+
 	// handle the request
-	out = frame
-	return
+	c.Write(hs.parser.rsp)
+	return gnet.None
 }
 
 func main() {
@@ -97,10 +90,9 @@ func main() {
 	res = "Hello World!\r\n"
 
 	http := new(httpServer)
-	hc := new(httpCodec)
 
 	// Start serving!
-	log.Fatal(gnet.Serve(http, fmt.Sprintf("tcp://:%d", port), gnet.WithMulticore(multicore), gnet.WithCodec(hc)))
+	log.Fatal(gnet.Run(http, fmt.Sprintf("tcp://:%d", port), gnet.WithMulticore(multicore)))
 }
 
 // appendHandle handles the incoming request and appends the response to
