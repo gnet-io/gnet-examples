@@ -29,6 +29,9 @@ type request struct {
 type httpServer struct {
 	*gnet.BuiltinEventEngine
 
+	addr      string
+	multicore bool
+	eng gnet.Engine
 	parser httpParser
 }
 
@@ -66,6 +69,12 @@ pipeline:
 	goto pipeline
 }
 
+func (hs *httpServer) OnBoot(eng gnet.Engine) gnet.Action {
+	hs.eng = eng
+	log.Printf("echo server with multi-core=%t is listening on %s\n", hs.multicore, hs.addr)
+	return gnet.None
+}
+
 func (hs *httpServer) OnTraffic(c gnet.Conn) gnet.Action {
 	if _, err := hs.parser.Parse(c); err != nil {
 		// bad thing happened
@@ -89,10 +98,10 @@ func main() {
 
 	res = "Hello World!\r\n"
 
-	http := new(httpServer)
+	http := &httpServer{addr: fmt.Sprintf("tcp://:%d", port), multicore: multicore}
 
 	// Start serving!
-	log.Fatal(gnet.Run(http, fmt.Sprintf("tcp://:%d", port), gnet.WithMulticore(multicore)))
+	log.Fatal(gnet.Run(http, http.addr, gnet.WithMulticore(multicore)))
 }
 
 // appendHandle handles the incoming request and appends the response to
