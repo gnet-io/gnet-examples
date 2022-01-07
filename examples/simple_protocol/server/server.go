@@ -37,7 +37,7 @@ func (s *simpleServer) OnOpen(c gnet.Conn) (out []byte, action gnet.Action) {
 
 func (s *simpleServer) OnClose(c gnet.Conn, err error) (action gnet.Action) {
 	if err != nil {
-		logging.Warnf("error occurred on closed, %v\n", err)
+		logging.Warnf("error occurred on connection=%s, %v\n", c.RemoteAddr().String(), err)
 	}
 	disconnected := atomic.AddInt32(&s.disconnected, 1)
 	connected := atomic.AddInt32(&s.connected, -1)
