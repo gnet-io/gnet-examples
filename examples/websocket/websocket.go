@@ -51,7 +51,8 @@ func (wss *wsServer) OnTraffic(c gnet.Conn) gnet.Action {
 		_, err := ws.Upgrade(c)
 		logging.Infof("conn[%v] upgrade websocket protocol", c.RemoteAddr().String())
 		if err != nil {
-			panic(err)
+			logging.Infof("conn[%v] [err=%v]", c.RemoteAddr().String(), err.Error())
+			return gnet.Close
 		}
 		c.Context().(*wsCodec).ws = true
 	} else {
