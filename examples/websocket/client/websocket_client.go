@@ -2,7 +2,7 @@ package main
 
 import (
 	"flag"
-	"log"
+	"github.com/panjf2000/gnet/v2/pkg/logging"
 	"net/url"
 	"os"
 	"os/signal"
@@ -15,17 +15,16 @@ var addr = flag.String("addr", "localhost:9080", "http service address")
 
 func main() {
 	flag.Parse()
-	log.SetFlags(0)
 
 	interrupt := make(chan os.Signal, 1)
 	signal.Notify(interrupt, os.Interrupt)
 
 	u := url.URL{Scheme: "ws", Host: *addr, Path: "/"}
-	log.Printf("connecting to %s", u.String())
+	logging.Infof("connecting to %s", u.String())
 
 	c, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
 	if err != nil {
-		log.Fatal("dial:", err)
+		logging.Fatalf("dial: %s", err)
 	}
 	defer c.Close()
 
@@ -36,10 +35,10 @@ func main() {
 		for {
 			_, message, err := c.ReadMessage()
 			if err != nil {
-				log.Println("read:", err)
+				logging.Infof("read err: %s", err)
 				return
 			}
-			log.Printf("recv: %s", message)
+			logging.Infof("recv: %s", message)
 		}
 	}()
 
@@ -53,17 +52,17 @@ func main() {
 		case t := <-ticker.C:
 			err := c.WriteMessage(websocket.TextMessage, []byte(t.String()))
 			if err != nil {
-				log.Println("write:", err)
+				logging.Infof("write err: %s", err)
 				return
 			}
 		case <-interrupt:
-			log.Println("interrupt")
+			logging.Infof("interrupt")
 
 			// Cleanly close the connection by sending a close message and then
 			// waiting (with timeout) for the server to close the connection.
 			err := c.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
 			if err != nil {
-				log.Println("write close:", err)
+				logging.Infof("write close err: %s", err)
 				return
 			}
 			select {
