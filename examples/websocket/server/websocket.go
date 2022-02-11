@@ -27,7 +27,7 @@ type wsCodec struct {
 
 func (wss *wsServer) OnBoot(eng gnet.Engine) gnet.Action {
 	wss.eng = eng
-	log.Printf("echo server with multi-core=%t is listening on %s\n", wss.multicore, wss.addr)
+	logging.Infof("\"echo server with multi-core=%t is listening on %s", wss.multicore, wss.addr)
 	return gnet.None
 }
 
@@ -65,7 +65,7 @@ func (wss *wsServer) OnTraffic(c gnet.Conn) gnet.Action {
 			return gnet.Close
 		}
 		logging.Infof("conn[%v] receive [op=%v] [msg=%v]", c.RemoteAddr().String(), op, string(msg))
-		// here is echo server
+		// This is the echo server
 		err = wsutil.WriteServerMessage(c, op, msg)
 		if err != nil {
 			logging.Infof("conn[%v] [err=%v]", c.RemoteAddr().String(), err.Error())
