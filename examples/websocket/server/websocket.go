@@ -42,7 +42,7 @@ func (wss *wsServer) OnClose(c gnet.Conn, err error) (action gnet.Action) {
 		logging.Warnf("error occurred on connection=%s, %v\n", c.RemoteAddr().String(), err)
 	}
 	atomic.AddInt64(&wss.connected, -1)
-	logging.Infof("conn[%v:%v] disconnected", c.RemoteAddr().String())
+	logging.Infof("conn[%v] disconnected", c.RemoteAddr().String())
 	return gnet.None
 }
 
@@ -59,11 +59,12 @@ func (wss *wsServer) OnTraffic(c gnet.Conn) gnet.Action {
 		msg, op, err := wsutil.ReadClientData(c)
 
 		if err != nil {
-			logging.Infof("conn[%v] [err=%v]", c.RemoteAddr().String(), err.Error())
+			if _, ok := err.(wsutil.ClosedError); !ok {
+				logging.Infof("conn[%v] [err=%v]", c.RemoteAddr().String(), err.Error())
+			}
 			return gnet.Close
 		}
 		logging.Infof("conn[%v] receive [op=%v] [msg=%v]", c.RemoteAddr().String(), op, string(msg))
-		// write your websocket response
 		// here is echo server
 		err = wsutil.WriteServerMessage(c, op, msg)
 		if err != nil {
