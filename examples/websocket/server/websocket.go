@@ -27,7 +27,7 @@ type wsCodec struct {
 
 func (wss *wsServer) OnBoot(eng gnet.Engine) gnet.Action {
 	wss.eng = eng
-	logging.Infof("\"echo server with multi-core=%t is listening on %s", wss.multicore, wss.addr)
+	logging.Infof("echo server with multi-core=%t is listening on %s", wss.multicore, wss.addr)
 	return gnet.None
 }
 
