@@ -61,7 +61,6 @@ func (s *simpleServer) OnTraffic(c gnet.Conn) (action gnet.Action) {
 			return gnet.Close
 		}
 		packet, _ := codec.Encode(data)
-		codec.Discard(c)
 		packets = append(packets, packet)
 	}
 	if n := len(packets); n > 1 {

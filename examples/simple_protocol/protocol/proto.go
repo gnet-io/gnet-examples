@@ -35,9 +35,7 @@ func init() {
 // * +                                   +
 // * |            ... ...                |
 // * +-----------------------------------+
-type SimpleCodec struct {
-	discardBytes int
-}
+type SimpleCodec struct{}
 
 func (codec SimpleCodec) Encode(buf []byte) ([]byte, error) {
 	bodyOffset := magicNumberSize + bodySize
@@ -68,17 +66,9 @@ func (codec *SimpleCodec) Decode(c gnet.Conn) ([]byte, error) {
 		return nil, ErrIncompletePacket
 	}
 	buf, _ = c.Peek(msgLen)
-	codec.discardBytes = msgLen
+	_, _ = c.Discard(msgLen)
 
 	return buf[bodyOffset:msgLen], nil
-}
-
-func (codec *SimpleCodec) Discard(c gnet.Conn) {
-	if codec.discardBytes <= 0 {
-		return
-	}
-	_, _ = c.Discard(codec.discardBytes)
-	codec.discardBytes = 0
 }
 
 func (codec SimpleCodec) Unpack(buf []byte) ([]byte, error) {
