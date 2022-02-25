@@ -4,14 +4,12 @@ import (
 	"flag"
 	"fmt"
 	"sync"
-	"time"
+
+	"github.com/gnet-io/gnet-examples/codec/config"
 
 	"github.com/panjf2000/gnet"
-
-	"github.com/gnet-io/gnet-examples/examples/custom_codec/protocol"
 )
 
-// Example command: go run client.go
 type codeClient struct {
 	*gnet.EventServer
 	wg sync.WaitGroup
@@ -23,12 +21,6 @@ func (cs *codeClient) React(frame []byte, c gnet.Conn) (out []byte, action gnet.
 	return
 }
 
-func (cs *codeClient) OnOpened(c gnet.Conn) ([]byte, gnet.Action) {
-	item := protocol.CustomLengthFieldProtocol{Version: protocol.DefaultProtocolVersion, ActionType: protocol.ActionData}
-	c.SetContext(item)
-	return nil, gnet.None
-}
-
 func main() {
 	var port int
 	var count int
@@ -38,13 +30,12 @@ func main() {
 	flag.Parse()
 	addr := fmt.Sprintf("127.0.0.1:%d", port)
 
-	codec := &protocol.CustomLengthFieldProtocol{}
+	codec := gnet.NewLengthFieldBasedFrameCodec(config.EncoderConfig, config.DecoderConfig)
 	cs := &codeClient{wg: sync.WaitGroup{}}
 	client, err := gnet.NewClient(
 		cs,
 		gnet.WithCodec(codec),
 		gnet.WithTCPNoDelay(gnet.TCPNoDelay),
-		gnet.WithTCPKeepAlive(time.Minute*5),
 	)
 	if err != nil {
 		panic(err)
@@ -61,12 +52,10 @@ func main() {
 	}
 	defer conn.Close()
 
-	// store customize protocol header param using `c.SetContext()`
-
 	cs.wg.Add(count)
 
 	for i := 0; i < count; i++ {
-		err = conn.AsyncWrite([]byte("hello"))
+		err = conn.AsyncWrite([]byte("hello world"))
 		if err != nil {
 			panic(err)
 		}

@@ -6,7 +6,7 @@ import (
 	"log"
 	"time"
 
-	"github.com/gnet-io/gnet-examples/examples/codec/config"
+	"github.com/gnet-io/gnet-examples/codec/config"
 
 	"github.com/panjf2000/gnet"
 	"github.com/panjf2000/gnet/pkg/pool/goroutine"
