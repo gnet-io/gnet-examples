@@ -37,7 +37,7 @@ func (s *simpleServer) OnOpen(c gnet.Conn) (out []byte, action gnet.Action) {
 
 func (s *simpleServer) OnClose(c gnet.Conn, err error) (action gnet.Action) {
 	if err != nil {
-		logging.Warnf("error occurred on connection=%s, %v\n", c.RemoteAddr().String(), err)
+		logging.Infof("error occurred on connection=%s, %v\n", c.RemoteAddr().String(), err)
 	}
 	disconnected := atomic.AddInt32(&s.disconnected, 1)
 	connected := atomic.AddInt32(&s.connected, -1)
@@ -77,7 +77,7 @@ func main() {
 
 	// Example command: go run server.go --port 9000 --multicore=true
 	flag.IntVar(&port, "port", 9000, "--port 9000")
-	flag.BoolVar(&multicore, "multicore", false, "--multicore true")
+	flag.BoolVar(&multicore, "multicore", false, "--multicore=true")
 	flag.Parse()
 	ss := &simpleServer{
 		network:   "tcp",
