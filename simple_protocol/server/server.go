@@ -8,7 +8,7 @@ import (
 	"github.com/panjf2000/gnet/v2"
 	"github.com/panjf2000/gnet/v2/pkg/logging"
 
-	"github.com/gnet-io/gnet-examples/examples/simple_protocol/protocol"
+	"github.com/gnet-io/gnet-examples/simple_protocol/protocol"
 )
 
 type simpleServer struct {

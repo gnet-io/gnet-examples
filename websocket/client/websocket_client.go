@@ -2,11 +2,12 @@ package main
 
 import (
 	"flag"
-	"github.com/panjf2000/gnet/v2/pkg/logging"
 	"net/url"
 	"os"
 	"os/signal"
 	"time"
+
+	"github.com/panjf2000/gnet/v2/pkg/logging"
 
 	"github.com/gorilla/websocket"
 )

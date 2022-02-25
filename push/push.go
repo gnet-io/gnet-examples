@@ -33,7 +33,7 @@ func (ps *pushServer) OnTick() (delay time.Duration, action gnet.Action) {
 	ps.connectedSockets.Range(func(key, value interface{}) bool {
 		addr := key.(string)
 		c := value.(gnet.Conn)
-		c.AsyncWrite([]byte(fmt.Sprintf("heart beating to %s\n", addr)))
+		c.AsyncWrite([]byte(fmt.Sprintf("heart beating to %s\n", addr)), nil)
 		return true
 	})
 	delay = ps.tick
