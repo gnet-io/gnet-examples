@@ -11,7 +11,7 @@ import (
 )
 
 type pushServer struct {
-	*gnet.BuiltinEventEngine
+	gnet.BuiltinEventEngine
 	tick             time.Duration
 	connectedSockets sync.Map
 }

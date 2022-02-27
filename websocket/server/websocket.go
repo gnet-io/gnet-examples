@@ -14,7 +14,7 @@ import (
 )
 
 type wsServer struct {
-	*gnet.BuiltinEventEngine
+	gnet.BuiltinEventEngine
 
 	addr      string
 	multicore bool

@@ -9,7 +9,7 @@ import (
 )
 
 type echoServer struct {
-	*gnet.BuiltinEventEngine
+	gnet.BuiltinEventEngine
 }
 
 func (es *echoServer) OnTraffic(c gnet.Conn) gnet.Action {
