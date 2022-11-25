@@ -7,7 +7,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/gobwas/ws"
 	"github.com/gobwas/ws/wsutil"
 	"github.com/panjf2000/gnet/v2"
 	"github.com/panjf2000/gnet/v2/pkg/logging"
@@ -20,10 +19,6 @@ type wsServer struct {
 	multicore bool
 	eng       gnet.Engine
 	connected int64
-}
-
-type wsCodec struct {
-	ws bool
 }
 
 func (wss *wsServer) OnBoot(eng gnet.Engine) gnet.Action {
@@ -47,33 +42,40 @@ func (wss *wsServer) OnClose(c gnet.Conn, err error) (action gnet.Action) {
 	return gnet.None
 }
 
-func (wss *wsServer) OnTraffic(c gnet.Conn) gnet.Action {
-	if !c.Context().(*wsCodec).ws {
-		_, err := ws.Upgrade(c)
-		logging.Infof("conn[%v] upgrade websocket protocol", c.RemoteAddr().String())
-		if err != nil {
-			logging.Infof("conn[%v] [err=%v]", c.RemoteAddr().String(), err.Error())
-			return gnet.Close
-		}
-		c.Context().(*wsCodec).ws = true
-	} else {
-		msg, op, err := wsutil.ReadClientData(c)
+func (wss *wsServer) OnTraffic(c gnet.Conn) (action gnet.Action) {
+	ws := c.Context().(*wsCodec)
+	if ws.readBufferBytes(c) == gnet.Close {
+		return gnet.Close
+	}
+	ok, action := ws.upgrade(c)
+	if !ok {
+		return
+	}
 
-		if err != nil {
-			if _, ok := err.(wsutil.ClosedError); !ok {
-				logging.Infof("conn[%v] [err=%v]", c.RemoteAddr().String(), err.Error())
-			}
-			return gnet.Close
+	if ws.buf.Len() <= 0 {
+		return gnet.None
+	}
+	messages, err := ws.Decode(c)
+	if err != nil {
+		return gnet.Close
+	}
+	if messages == nil {
+		return
+	}
+	for _, message := range messages {
+		msgLen := len(message.Payload)
+		if msgLen > 128 {
+			logging.Infof("conn[%v] receive [op=%v] [msg=%v..., len=%d]", c.RemoteAddr().String(), message.OpCode, string(message.Payload[:128]), len(message.Payload))
+		} else {
+			logging.Infof("conn[%v] receive [op=%v] [msg=%v, len=%d]", c.RemoteAddr().String(), message.OpCode, string(message.Payload), len(message.Payload))
 		}
-		logging.Infof("conn[%v] receive [op=%v] [msg=%v]", c.RemoteAddr().String(), op, string(msg))
 		// This is the echo server
-		err = wsutil.WriteServerMessage(c, op, msg)
+		err = wsutil.WriteServerMessage(c, message.OpCode, message.Payload)
 		if err != nil {
 			logging.Infof("conn[%v] [err=%v]", c.RemoteAddr().String(), err.Error())
 			return gnet.Close
 		}
 	}
-
 	return gnet.None
 }
 
