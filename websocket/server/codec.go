@@ -33,28 +33,20 @@ func (w *wsCodec) upgrade(c gnet.Conn) (ok bool, action gnet.Action) {
 		return
 	}
 	buf := &w.buf
-	tmpReader := bytes.NewReader(buf.Bytes())
-	oldLen := tmpReader.Len()
 	logging.Infof("do Upgrade")
 
-	hs, err := ws.Upgrade(readWrite{tmpReader, c})
-	skipN := oldLen - tmpReader.Len()
+	hs, err := ws.Upgrade(readWrite{buf, c})
 	if err != nil {
-		if err == io.EOF || err == io.ErrUnexpectedEOF { //数据不完整
+		if err == io.EOF || errors.Is(err, io.ErrUnexpectedEOF) { //数据不完整
 			return
 		}
-		buf.Next(skipN)
-		logging.Infof("conn[%v] [err=%v]", c.RemoteAddr().String(), err.Error())
+		logging.Errorf("conn[%v] [err=%v]", c.RemoteAddr().String(), err.Error())
 		action = gnet.Close
 		return
 	}
-	buf.Next(skipN)
+
 	logging.Infof("conn[%v] upgrade websocket protocol! Handshake: %v", c.RemoteAddr().String(), hs)
-	if err != nil {
-		logging.Infof("conn[%v] [err=%v]", c.RemoteAddr().String(), err.Error())
-		action = gnet.Close
-		return
-	}
+
 	ok = true
 	w.upgraded = true
 	return
