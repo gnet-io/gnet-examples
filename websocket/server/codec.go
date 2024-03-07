@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"github.com/gobwas/ws"
 	"github.com/gobwas/ws/wsutil"
@@ -17,9 +18,8 @@ type wsCodec struct {
 }
 
 type wsMessageBuf struct {
-	firstHeader *ws.Header
-	curHeader   *ws.Header
-	cachedBuf   bytes.Buffer
+	curHeader *ws.Header
+	cachedBuf bytes.Buffer
 }
 
 type readWrite struct {
@@ -40,35 +40,31 @@ func (w *wsCodec) upgrade(c gnet.Conn) (ok bool, action gnet.Action) {
 	hs, err := ws.Upgrade(readWrite{tmpReader, c})
 	skipN := oldLen - tmpReader.Len()
 	if err != nil {
-		if err == io.EOF || err == io.ErrUnexpectedEOF { //数据不完整
+		if err == io.EOF || errors.Is(err, io.ErrUnexpectedEOF) { //数据不完整，不跳过 buf 中的 skipN 字节（此时 buf 中存放的仅是部分 "handshake data" bytes），下次再尝试读取
 			return
 		}
 		buf.Next(skipN)
-		logging.Infof("conn[%v] [err=%v]", c.RemoteAddr().String(), err.Error())
+		logging.Errorf("conn[%v] [err=%v]", c.RemoteAddr().String(), err.Error())
 		action = gnet.Close
 		return
 	}
 	buf.Next(skipN)
 	logging.Infof("conn[%v] upgrade websocket protocol! Handshake: %v", c.RemoteAddr().String(), hs)
-	if err != nil {
-		logging.Infof("conn[%v] [err=%v]", c.RemoteAddr().String(), err.Error())
-		action = gnet.Close
-		return
-	}
+
 	ok = true
 	w.upgraded = true
 	return
 }
 func (w *wsCodec) readBufferBytes(c gnet.Conn) gnet.Action {
 	size := c.InboundBuffered()
-	buf := make([]byte, size, size)
+	buf := make([]byte, size)
 	read, err := c.Read(buf)
 	if err != nil {
-		logging.Infof("read err! %w", err)
+		logging.Errorf("read err! %v", err)
 		return gnet.Close
 	}
 	if read < size {
-		logging.Infof("read bytes len err! size: %d read: %d", size, read)
+		logging.Errorf("read bytes len err! size: %d read: %d", size, read)
 		return gnet.Close
 	}
 	w.buf.Write(buf)
@@ -78,7 +74,7 @@ func (w *wsCodec) Decode(c gnet.Conn) (outs []wsutil.Message, err error) {
 	fmt.Println("do Decode")
 	messages, err := w.readWsMessages()
 	if err != nil {
-		logging.Infof("Error reading message! %v", err)
+		logging.Errorf("Error reading message! %v", err)
 		return nil, err
 	}
 	if messages == nil || len(messages) <= 0 { //没有读到完整数据 不处理
@@ -103,6 +99,7 @@ func (w *wsCodec) readWsMessages() (messages []wsutil.Message, err error) {
 	msgBuf := &w.wsMsgBuf
 	in := &w.buf
 	for {
+		// 从 in 中读出 header，并将 header bytes 写入 msgBuf.cachedBuf
 		if msgBuf.curHeader == nil {
 			if in.Len() < ws.MinHeaderSize { //头长度至少是2
 				return
@@ -113,13 +110,13 @@ func (w *wsCodec) readWsMessages() (messages []wsutil.Message, err error) {
 				if err != nil {
 					return messages, err
 				}
-			} else { //有可能不完整，构建新的 reader 读取 head 读取成功才实际对 in 进行读操作
+			} else { //有可能不完整，构建新的 reader 读取 head，读取成功才实际对 in 进行读操作
 				tmpReader := bytes.NewReader(in.Bytes())
 				oldLen := tmpReader.Len()
 				head, err = ws.ReadHeader(tmpReader)
 				skipN := oldLen - tmpReader.Len()
 				if err != nil {
-					if err == io.EOF || err == io.ErrUnexpectedEOF { //数据不完整
+					if err == io.EOF || errors.Is(err, io.ErrUnexpectedEOF) { //数据不完整
 						return messages, nil
 					}
 					in.Next(skipN)
@@ -135,15 +132,16 @@ func (w *wsCodec) readWsMessages() (messages []wsutil.Message, err error) {
 			}
 		}
 		dataLen := (int)(msgBuf.curHeader.Length)
+		// 从 in 中读出 data，并将 data bytes 写入 msgBuf.cachedBuf
 		if dataLen > 0 {
-			if in.Len() >= dataLen {
-				_, err = io.CopyN(&msgBuf.cachedBuf, in, int64(dataLen))
-				if err != nil {
-					return
-				}
-			} else { //数据不完整
+			if in.Len() < dataLen { //数据不完整
 				fmt.Println(in.Len(), dataLen)
 				logging.Infof("incomplete data")
+				return
+			}
+
+			_, err = io.CopyN(&msgBuf.cachedBuf, in, int64(dataLen))
+			if err != nil {
 				return
 			}
 		}
