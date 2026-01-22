@@ -51,10 +51,12 @@ func main() {
 		case <-done:
 			return
 		case t := <-ticker.C:
-			err := c.WriteMessage(websocket.TextMessage, []byte(t.String()))
-			if err != nil {
-				logging.Infof("write err: %s", err)
-				return
+			for i := 0; i < 10; i++ {
+				err := c.WriteMessage(websocket.TextMessage, []byte(t.String()))
+				if err != nil {
+					logging.Infof("write err: %s", err)
+					return
+				}
 			}
 		case <-interrupt:
 			logging.Infof("interrupt")
